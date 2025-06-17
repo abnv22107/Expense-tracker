@@ -1,0 +1,253 @@
+{% extends "tracker/base.html" %}
+{% load crispy_forms_tags %}
+{% load static %}
+
+{% block title %}Stock Market - Expense Tracker{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card bg-header-card-modern" style="background-image: url('{% static 'tracker/images/img5.jpg' %}'); background-size: cover; background-position: center;">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h2 class="mb-1">Stock Market</h2>
+                            <p class="mb-0 opacity-75">Live updates and trending stocks for smarter investments</p>
+                        </div>
+                        <i class="fas fa-chart-line fa-3x text-dark opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Live Stock Updates -->
+        <div class="col-12 mb-4">
+            <div class="card shadow-sm">
+                <div class="card-header bg-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-chart-line me-2"></i>Live Stock Updates
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="input-group mb-3">
+                                <select class="form-select" id="marketSelect" style="max-width: 120px;">
+                                    <option value="US">US Market</option>
+                                    <option value="IN">Indian Market</option>
+                                </select>
+                                <input type="text" id="stockSymbol" class="form-control" placeholder="Enter stock symbol">
+                                <button class="btn btn-primary" type="button" id="searchStock">
+                                    <i class="fas fa-search me-2"></i>Search
+                                </button>
+                            </div>
+                            <small class="text-muted">
+                                For US stocks: Enter symbol (e.g., AAPL)<br>
+                                For Indian stocks: Enter symbol (e.g., RELIANCE)
+                            </small>
+                        </div>
+                    </div>
+                    <div id="stockInfo" class="mt-4" style="display: none;">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="card bg-light">
+                                    <div class="card-body">
+                                        <h6 class="card-subtitle mb-2 text-muted" id="stockName"></h6>
+                                        <h3 class="card-title mb-3" id="stockPrice"></h3>
+                                        <div class="d-flex justify-content-between">
+                                            <div>
+                                                <small class="text-muted">Change</small>
+                                                <p class="mb-0" id="stockChange"></p>
+                                            </div>
+                                            <div>
+                                                <small class="text-muted">Volume</small>
+                                                <p class="mb-0" id="stockVolume"></p>
+                                            </div>
+                                            <div>
+                                                <small class="text-muted">Market Cap</small>
+                                                <p class="mb-0" id="stockMarketCap"></p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <canvas id="stockChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Trending Stocks -->
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-fire me-2"></i>Trending Stocks
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Symbol</th>
+                                    <th>Name</th>
+                                    <th>Price</th>
+                                    <th>Change</th>
+                                    <th>Volume</th>
+                                    <th>Market</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="trendingStocks">
+                                <!-- Trending stocks will be loaded here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // Global variables
+    let stockChart;
+    let updateStockInfo;
+    let updateStockChart;
+
+    // Global function to fetch stock data
+    function fetchStockData(symbol) {
+        fetch(`/tracker/api/stock/${symbol}/`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    updateStockInfo(data.data);
+                    updateStockChart(data.data.historical);
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while fetching stock data.');
+            });
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        stockChart = new Chart(document.getElementById('stockChart'), {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Stock Price',
+                    data: [],
+                    borderColor: '#007bff',
+                    tension: 0.1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: false
+                    }
+                }
+            }
+        });
+
+        // Search Stock
+        document.getElementById('searchStock').addEventListener('click', function() {
+            const symbol = document.getElementById('stockSymbol').value.toUpperCase();
+            const market = document.getElementById('marketSelect').value;
+            if (symbol) {
+                const fullSymbol = market === 'IN' ? `${symbol}.NS` : symbol;
+                fetchStockData(fullSymbol);
+            }
+        });
+
+        // Load Trending Stocks
+        loadTrendingStocks();
+
+        // Define helper functions
+        updateStockInfo = function(data) {
+            document.getElementById('stockInfo').style.display = 'block';
+            document.getElementById('stockName').textContent = `${data.symbol} - ${data.name}`;
+            document.getElementById('stockPrice').textContent = `$${data.price}`;
+            
+            const changeElement = document.getElementById('stockChange');
+            changeElement.textContent = `${data.change} (${data.changePercent}%)`;
+            changeElement.className = data.change >= 0 ? 'text-success' : 'text-danger';
+            
+            document.getElementById('stockVolume').textContent = formatNumber(data.volume);
+            document.getElementById('stockMarketCap').textContent = formatNumber(data.marketCap);
+        };
+
+        updateStockChart = function(historicalData) {
+            stockChart.data.labels = historicalData.map(d => d.date);
+            stockChart.data.datasets[0].data = historicalData.map(d => d.price);
+            stockChart.update();
+        };
+
+        function loadTrendingStocks() {
+            fetch('/tracker/api/trending-stocks/')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        updateTrendingStocks(data.stocks);
+                    } else {
+                        console.error('Error loading trending stocks:', data.error);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                });
+        }
+
+        function updateTrendingStocks(stocks) {
+            const tbody = document.getElementById('trendingStocks');
+            tbody.innerHTML = '';
+            
+            stocks.forEach(stock => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${stock.symbol}</td>
+                    <td>${stock.name}</td>
+                    <td>$${stock.price}</td>
+                    <td class="${stock.change >= 0 ? 'text-success' : 'text-danger'}">
+                        ${stock.change} (${stock.changePercent}%)
+                    </td>
+                    <td>${formatNumber(stock.volume)}</td>
+                    <td>${stock.isIndianStock ? 'Indian' : 'US'}</td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-primary" onclick="fetchStockData('${stock.symbol}')">
+                            <i class="fas fa-chart-line"></i> View
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function formatNumber(num) {
+            return new Intl.NumberFormat('en-US').format(num);
+        }
+    });
+</script>
+{% endblock %} 

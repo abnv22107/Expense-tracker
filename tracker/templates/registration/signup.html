@@ -1,0 +1,67 @@
+{% extends 'tracker/base.html' %}
+{% block title %}Sign Up{% endblock %}
+
+{% block content %}
+<div class="container mt-5" style="max-width: 400px;">
+    <h2 class="mb-4 text-center">Sign Up</h2>
+    <form method="post" novalidate>
+        {% csrf_token %}
+        
+        <div class="form-floating mb-3">
+            <input type="text" class="form-control" id="username" name="username" placeholder="Username" required>
+            <label for="username">Username</label>
+            <div class="invalid-feedback">Username is required.</div>
+        </div>
+
+        <div class="form-floating mb-3">
+            <input type="email" class="form-control" id="email" name="email" placeholder="Email" required>
+            <label for="email">Email address</label>
+            <div class="invalid-feedback">Valid email is required.</div>
+        </div>
+
+        <div class="form-floating mb-3">
+            <input type="password" class="form-control" id="password1" name="password1" placeholder="Password" required>
+            <label for="password1">Password</label>
+            <div class="invalid-feedback">Password is required.</div>
+        </div>
+
+        <div class="form-floating mb-3">
+            <input type="password" class="form-control" id="password2" name="password2" placeholder="Confirm Password" required>
+            <label for="password2">Confirm Password</label>
+            <div class="invalid-feedback">Please confirm your password.</div>
+        </div>
+
+        <button type="submit" class="btn btn-success w-100">
+            ✍️ Sign Up
+        </button>
+    </form>
+
+    <div class="mt-4 p-3 text-center bg-light rounded shadow-sm">
+    <p class="mb-1">Already registered?</p>
+    <a href="{% url 'login' %}" class="btn btn-outline-secondary btn-sm">
+        🔐 Login to your Account
+    </a>
+</div>
+
+</div>
+
+<!-- Client-side validation -->
+<script>
+    document.querySelector('form').addEventListener('submit', function (e) {
+        const fields = ['username', 'email', 'password1', 'password2'];
+        let valid = true;
+
+        fields.forEach(id => {
+            const input = document.getElementById(id);
+            if (!input.value.trim()) {
+                input.classList.add('is-invalid');
+                valid = false;
+            } else {
+                input.classList.remove('is-invalid');
+            }
+        });
+
+        if (!valid) e.preventDefault();
+    });
+</script>
+{% endblock %}

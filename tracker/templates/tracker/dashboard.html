@@ -1,0 +1,412 @@
+{% extends 'tracker/base.html' %}
+{% load crispy_forms_tags %}
+{% load static %}
+
+{% block title %}Dashboard - Expense Tracker{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Welcome Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card bg-header-card-modern" style="background-image: url('{% static "tracker/images/img5.jpg" %}'); background-size: cover; background-position: center;">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h2 class="mb-1">Welcome back, {{ user.first_name|default:user.username }}!</h2>
+                            <p class="mb-0 opacity-75">Here's your financial overview for {{ current_month }}</p>
+                        </div>
+                        <button type="button" class="btn btn-light" data-bs-toggle="modal" data-bs-target="#addIncomeModal">
+                            <i class="fas fa-plus me-2"></i>Add Income
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Flash Cards Section -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card h-100 border-0 bg-income-card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="card-title mb-0 text-white">Total Income</h6>
+                        <i class="fas fa-arrow-up fa-2x text-white-50"></i>
+                    </div>
+                    <h3 class="mb-0 text-white">₹{{ total_income|default:"0.00" }}</h3>
+                    <p class="text-white-50 mb-0 mt-2">This month</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card h-100 border-0 bg-expense-card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="card-title mb-0 text-white">Total Expenses</h6>
+                        <i class="fas fa-arrow-down fa-2x text-white-50"></i>
+                    </div>
+                    <h3 class="mb-0 text-white">₹{{ total_expenses|default:"0.00" }}</h3>
+                    <p class="text-white-50 mb-0 mt-2">This month</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card h-100 border-0 bg-savings-card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="card-title mb-0 text-white">Net Savings</h6>
+                        <i class="fas fa-piggy-bank fa-2x text-white-50"></i>
+                    </div>
+                    <h3 class="mb-0 text-white">₹{{ net_savings|default:"0.00" }}</h3>
+                    <p class="text-white-50 mb-0 mt-2">This month</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card h-100 border-0 bg-savings-rate-card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="card-title mb-0 text-white">Savings Rate</h6>
+                        <i class="fas fa-percentage fa-2x text-white-50"></i>
+                    </div>
+                    <h3 class="mb-0 text-white">{{ savings_rate|default:"0" }}%</h3>
+                    <p class="text-white-50 mb-0 mt-2">This month</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Date Range Filter -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <form method="get" class="row g-3 align-items-end">
+                        <div class="col-md-4">
+                            <label for="date_from" class="form-label">Date From</label>
+                            <input type="date" class="form-control" id="date_from" name="date_from" value="{{ date_from }}">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="date_to" class="form-label">Date To</label>
+                            <input type="date" class="form-control" id="date_to" name="date_to" value="{{ date_to }}">
+                        </div>
+                        <div class="col-md-4">
+                            <div class="d-flex gap-2">
+                                <button type="submit" class="btn btn-primary flex-grow-1">
+                                    <i class="fas fa-filter me-2"></i>Generate Report
+                                </button>
+                                <button type="button" id="currentMonthBtn" class="btn btn-outline-secondary" data-bs-toggle="tooltip" data-bs-placement="top" title="Current Month">
+                                    <i class="fas fa-calendar"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Section -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title d-flex justify-content-between align-items-center">
+                        <span>Expenses by Category</span>
+                        <i class="fas fa-chart-pie text-primary"></i>
+                    </h5>
+                    <div id="pieChartContainer" class="mt-3">
+                        <canvas id="pieChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title d-flex justify-content-between align-items-center">
+                        <span>
+                            {% if is_current_month_view %}
+                                Monthly Expenses ({{ current_month }})
+                            {% else %}
+                                Monthly Expenses ({{ date_from }} to {{ date_to }})
+                            {% endif %}
+                        </span>
+                        <i class="fas fa-chart-bar text-primary"></i>
+                    </h5>
+                    <div id="barChartContainer" class="mt-3">
+                        <canvas id="barChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detailed Report -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-transparent">
+                    <h5 class="card-title mb-0 d-flex justify-content-between align-items-center">
+                        <span>Detailed Report</span>
+                        <i class="fas fa-list text-primary"></i>
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if transactions %}
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Description</th>
+                                        <th>Category</th>
+                                        <th>Type</th>
+                                        <th class="text-end">Amount</th>
+                                        <th class="text-center">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for transaction in transactions %}
+                                        <tr id="transaction-{{ transaction.id }}">
+                                            <td>{{ transaction.date|date:"M d, Y" }}</td>
+                                            <td>{{ transaction.description }}</td>
+                                            <td>
+                                                <span class="badge bg-light text-dark">
+                                                    <i class="fas fa-tag me-1"></i>{{ transaction.category.name }}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                {% if transaction.transaction_type == 'income' %}
+                                                    <span class="badge bg-success">
+                                                        <i class="fas fa-arrow-up me-1"></i>Income
+                                                    </span>
+                                                {% else %}
+                                                    <span class="badge bg-danger">
+                                                        <i class="fas fa-arrow-down me-1"></i>Expense
+                                                    </span>
+                                                {% endif %}
+                                            </td>
+                                            <td class="text-end {% if transaction.transaction_type == 'income' %}text-success{% else %}text-danger{% endif %}">
+                                                {% if transaction.transaction_type == 'income' %}+{% else %}-{% endif %}₹{{ transaction.amount }}
+                                            </td>
+                                            <td class="text-center">
+                                                {% if transaction.transaction_type == 'income' %}
+                                                    <button class="btn btn-sm btn-outline-danger delete-transaction-btn" data-transaction-id="{{ transaction.id }}" title="Delete">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-receipt fa-3x text-muted mb-3"></i>
+                            <p class="text-muted">No transactions found for the selected period.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Income Modal -->
+<div class="modal fade" id="addIncomeModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-plus-circle me-2"></i>Add New Income
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form method="post" action="{% url 'tracker:income-create' %}">
+                    {% csrf_token %}
+                    {{ income_form|crispy }}
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-2"></i>Add Income
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize tooltips
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl)
+        });
+
+        // Handle Current Month Button Click
+        document.getElementById('currentMonthBtn').addEventListener('click', function() {
+            const dateFromInput = document.getElementById('date_from');
+            const dateToInput = document.getElementById('date_to');
+            
+            // Set the date inputs to current month start and end
+            dateFromInput.value = '{{ current_month_start }}';
+            dateToInput.value = '{{ current_month_end }}';
+            
+            // Submit the form
+            dateFromInput.form.submit();
+        });
+
+        // Chart.js data
+        const rawPieChartData = JSON.parse('{{ pie_chart_data|escapejs }}');
+        const pieChartData = {
+            labels: rawPieChartData.labels,
+            datasets: [{
+                data: rawPieChartData.values,
+                backgroundColor: [
+                    '#dc3545', // Danger (red)
+                    '#fd7e14', // Warning (orange)
+                    '#ffc107', // Yellow
+                    '#28a745', // Success (green)
+                    '#007bff', // Primary (blue)
+                    '#6f42c1', // Purple
+                    '#20c997', // Teal
+                    '#17a2b8'  // Info (light blue)
+                ],
+                hoverOffset: 4
+            }]
+        };
+
+        const rawBarChartData = JSON.parse('{{ bar_chart_data|escapejs }}');
+        const barChartData = {
+            labels: rawBarChartData.labels,
+            datasets: [{
+                label: 'Monthly Expenses',
+                data: rawBarChartData.values,
+                backgroundColor: '#007bff',
+                borderColor: '#007bff',
+                borderWidth: 1
+            }]
+        };
+
+        // Render Pie Chart
+        const pieCtx = document.getElementById('pieChart').getContext('2d');
+        new Chart(pieCtx, {
+            type: 'pie',
+            data: pieChartData,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            color: '#333' // Revert legend text color
+                        }
+                    },
+                    title: {
+                        display: false,
+                        text: 'Expenses by Category'
+                    }
+                }
+            }
+        });
+
+        // Render Bar Chart
+        const barCtx = document.getElementById('barChart').getContext('2d');
+        new Chart(barCtx, {
+            type: 'bar',
+            data: barChartData,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    title: {
+                        display: false,
+                        text: 'Monthly Expenses'
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            color: '#333' // Revert y-axis label color
+                        }
+                    },
+                    x: {
+                        ticks: {
+                            color: '#333' // Revert x-axis label color
+                        }
+                    }
+                }
+            }
+        });
+
+        // Handle Delete Transaction (Income only)
+        document.querySelectorAll('.delete-transaction-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const transactionId = this.getAttribute('data-transaction-id');
+                console.log('Delete button clicked for transaction:', transactionId);
+                
+                if (!transactionId) {
+                    console.error('No transaction ID found');
+                    alert('Error: Could not find transaction ID');
+                    return;
+                }
+                
+                if (confirm('Are you sure you want to delete this income entry?')) {
+                    console.log('Deleting income:', transactionId);
+                    const url = `/tracker/delete_transaction/${transactionId}/`;
+                    console.log('Sending delete request to:', url);
+                    
+                    fetch(url, {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': '{{ csrf_token }}',
+                            'Content-Type': 'application/json'
+                        },
+                    })
+                    .then(response => {
+                        console.log('Response status:', response.status);
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        console.log('Delete response:', data);
+                        if (data.success) {
+                            const row = document.getElementById(`transaction-${transactionId}`);
+                            if (row) {
+                                console.log('Removing row:', row);
+                                row.remove();
+                                location.reload();
+                            } else {
+                                console.error('Could not find transaction row to remove');
+                                location.reload();
+                            }
+                        } else {
+                            alert('Error deleting income: ' + data.error);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('An error occurred while deleting the income. Please try again.');
+                    });
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}

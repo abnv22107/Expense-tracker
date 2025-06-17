@@ -1,0 +1,8 @@
+Django>=5.0.2
+python-dotenv>=1.0.0
+django-crispy-forms>=2.1
+crispy-bootstrap4>=2023.1
+openai
+cohere>=4.37
+yfinance>=0.2.36
+requests>=2.31.0 
